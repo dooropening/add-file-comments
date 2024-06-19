@@ -2,6 +2,8 @@ import tkinterdnd2
 from tkinter import Tk, Label, messagebox, simpledialog
 import os
 import zipfile
+import sys
+sys.path.append(r'.\venv\Lib\site-packages')
 
 
 class DragDropWindow(tkinterdnd2.Tk):
@@ -42,7 +44,7 @@ class DragDropWindow(tkinterdnd2.Tk):
 
     def create_note_file(self, source_file, note_file, comment):
         with open(note_file, 'w') as f:
-            f.write(simpledialog.askstring("输入", "请输入备注信息:"))
+            f.write(comment)
         print(f"创建备注文件 {note_file} 成功")
 
     def compress_files(self, file_a, note_file):
