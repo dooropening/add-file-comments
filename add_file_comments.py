@@ -1,3 +1,6 @@
+# 问题：生成文件在添加备注程序目录下，不在要压缩文件目录下。
+# 尝试获取要压缩文件信息后，直接更改工作目录法。
+
 import tkinterdnd2
 from tkinter import Tk, Label, messagebox, simpledialog
 import os
@@ -30,6 +33,8 @@ class DragDropWindow(tkinterdnd2.Tk):
     def drop(self, event):
         file_path = event.data
         if os.path.isfile(file_path):
+            directory = os.path.split(file_path)[0]
+            os.chdir(directory)
             self.process_file(file_path)
         else:
             messagebox.showerror("错误", "只能拖放单个文件！")
