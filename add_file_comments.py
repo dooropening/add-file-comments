@@ -1,6 +1,8 @@
 import os
-import win32com.client
+import win32api
+import win32con
 import pythoncom
+from win32com.shell import shell, shellcon
 
 
 def set_file_comment(file_path, comment):
@@ -9,51 +11,26 @@ def set_file_comment(file_path, comment):
 
     # 初始化COM库
     pythoncom.CoInitialize()
-    print("program start")
 
-    # 创建Shell对象
-    shell = win32com.client.Dispatch("Shell.Application")
-    folder_path, file_name = os.path.split(file_path)
-    folder = shell.NameSpace(folder_path)
-    print("17 done")
-    if folder is None:
-        raise FileNotFoundError(f"The folder {folder_path} could not be found.")
+    # 获取IShellItem2对象
+    item = shell.SHCreateItemFromParsingName(file_path, None, shell.IID_IShellItem2)
 
-    item = folder.ParseName(file_name)
-    print("22 done")
+    # 获取属性存储对象
+    property_store = item.GetPropertyStore(shellcon.GPS_READWRITE, shell.IID_IPropertyStore)
 
-    if item is None:
-        raise FileNotFoundError(f"The file {file_name} could not be found in the folder {folder_path}.")
+    # 获取评论属性的PROPERTYKEY
+    property_key = shell.PKEY_Comment
 
-    # 获取所有的详细属性名称并查找备注属性的索引
-    comment_index = -1
-    for i in range(266):
-        property_name = folder.GetDetailsOf(None, i)
-        if property_name.lower() == "comments" or property_name == "备注":
-            comment_index = i
-            break
-    print("34 done")
-
-    if comment_index == -1:
-        raise Exception("The 'Comments' property index could not be found.")
-
-    # 使用FolderItem的方法设置文件属性
-    folder_item = folder.ParseName(file_name)
-    if folder_item is None:
-        raise Exception(f"Could not retrieve the folder item for {file_name}.")
-    print("43 done")
-
-    # 设置备注
-    folder_item.ExtendedProperty(f"System.Comment:{comment}")
-    print("47 done")
+    # 设置评论属性
+    prop_var = pythoncom.Variant(pythoncom.VT_LPWSTR, comment)
+    property_store.SetValue(property_key, prop_var)
+    property_store.Commit()
 
     # 清理COM库
     pythoncom.CoUninitialize()
-    print("final done")
-
 
 # 示例文件路径和备注
-file_path = r"D:\backend_develop\add-file-comments\test.txt"
+file_path = r"C:\path\to\your\file.txt"
 comment = "This is a sample comment."
 
 # 设置文件备注
