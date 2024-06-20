@@ -1,5 +1,4 @@
-# 问题：生成文件在添加备注程序目录下，不在要压缩文件目录下。
-# 尝试获取要压缩文件信息后，直接更改工作目录法。
+# 程序按预想成功运行，尝试将备注txt文件名直接更改为备注信息，即以备注信息为txt文件名，这样直接打开压缩文件即可看备注信息。
 
 import tkinterdnd2
 from tkinter import Tk, Label, messagebox, simpledialog
@@ -43,7 +42,7 @@ class DragDropWindow(tkinterdnd2.Tk):
         comment = simpledialog.askstring("输入", "请输入备注信息:")
         if comment:
             base_name = os.path.splitext(os.path.basename(file_path))[0]
-            note_file = f"{base_name}备注信息.txt"
+            note_file = f"{comment}.txt"
             self.create_note_file(file_path, note_file, comment)
             self.compress_files(file_path, note_file)
 
