@@ -1,21 +1,91 @@
-# 程序按预想成功运行，尝试将备注txt文件名直接更改为备注信息，即以备注信息为txt文件名，这样直接打开压缩文件即可看备注信息。
-
-import tkinterdnd2
-from tkinter import Tk, Label, messagebox, simpledialog
 import os
 import zipfile
-import sys
-sys.path.append(r'.\venv\Lib\site-packages')
+import send2trash
+from tkinter import Tk, Label, messagebox, simpledialog
+import tkinterdnd2
+import datetime
+
+"""
+软件功能：windows10系统中，对文件或文件夹进行压缩，并添加备注。生成的压缩包名称添生成时间，原文件自动移动到回收站。
+"""
+
+
+class FileProcessor:
+    def __init__(self, initial_dir):
+        self.initial_dir = initial_dir
+
+    def create_note_file(self, item_path, comment):
+        # 在文件或文件夹所在目录创建备注文件
+        note_file_path = os.path.join(os.path.dirname(item_path), f"{comment}.txt")
+        with open(note_file_path, 'w') as f:
+            f.write(comment)
+        return note_file_path
+
+    def compress_and_clean_up(self, item_path, note_file_path=None):
+        """
+        压缩目标路径（文件或文件夹），并清理（移动原文件/文件夹到回收站）
+        """
+        # 标准化路径
+        item_path = os.path.normpath(item_path)
+        if note_file_path:
+            note_file_path = os.path.normpath(note_file_path)
+        if os.path.isdir(item_path):
+            base_name = os.path.basename(item_path)
+        else:
+            base_name = os.path.splitext(os.path.basename(item_path))[0]
+
+        now = datetime.datetime.now()
+        formatted_date = now.strftime("%Y%m%d_%H%M%S")
+        output_file = os.path.join(os.path.dirname(item_path), f"{base_name}_{formatted_date}.zip")
+
+        try:
+            with zipfile.ZipFile(output_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                if os.path.isdir(item_path):
+                    # 压缩文件夹
+                    for root, dirs, files in os.walk(item_path):
+                        for file in files:
+                            if file != os.path.basename(note_file_path):
+                                zipf.write(os.path.join(root, file),
+                                           os.path.relpath(os.path.join(root, file), item_path))
+                    # 显式添加备注文件，确保其被包含在压缩包根目录下
+                    if note_file_path:
+                        zipf.write(note_file_path, os.path.basename(note_file_path))
+                else:
+                    # 压缩单个文件
+                    zipf.write(item_path, os.path.basename(item_path))
+                    if note_file_path:
+                        zipf.write(note_file_path, os.path.basename(note_file_path))
+            print(f"压缩成功，输出为 {output_file}")
+
+            # 尝试将原文件或文件夹及其备注文件移至回收站
+            print(note_file_path)
+            print(item_path)
+            self.safe_send2trash(note_file_path)
+            print('note file path process')
+            self.safe_send2trash(item_path)
+            print('item path process')
+        except Exception as e:
+            print(f"压缩失败: {e}")
+            messagebox.showerror("错误", f"压缩失败: {e}")
+
+    def safe_send2trash(self, path):
+        if os.path.exists(path):
+            try:
+                send2trash.send2trash(path)
+                print(f"已将 {path} 移至回收站")
+            except Exception as e:
+                print(f"移至回收站失败: {e}")
 
 
 class DragDropWindow(tkinterdnd2.Tk):
     def __init__(self):
         super().__init__()
-        self.title('文件备注工具')
+        self.title('文件/文件夹备注及打包工具')
         self.geometry('300x200')
-        self.cwd = os.getcwd()  # 记录窗口启动时的工作目录
+        self.cwd = os.getcwd()
+        self.processor = FileProcessor(self.cwd)
 
-        self.drop_target = Label(self, text="将文件拖放到这里")
+        self.drop_target = Label(self, text="将文件或文件夹拖放到这里")
         self.drop_target.pack(fill='both', expand=True)
 
         self.drop_target.drop_target_register(tkinterdnd2.DND_FILES)
@@ -30,48 +100,16 @@ class DragDropWindow(tkinterdnd2.Tk):
         event.widget.configure(bg='white')
 
     def drop(self, event):
-        file_path = event.data
-        if os.path.isfile(file_path):
-            directory = os.path.split(file_path)[0]
-            os.chdir(directory)
-            self.process_file(file_path)
+        path = event.data
+        if os.path.exists(path):
+            comment = simpledialog.askstring("输入", "请输入备注信息:")
+            if comment:
+                note_file_path = self.processor.create_note_file(path, comment)
+                self.processor.compress_and_clean_up(path, note_file_path)
         else:
-            messagebox.showerror("错误", "只能拖放单个文件！")
-
-    def process_file(self, file_path):
-        comment = simpledialog.askstring("输入", "请输入备注信息:")
-        if comment:
-            base_name = os.path.splitext(os.path.basename(file_path))[0]
-            note_file = f"{comment}.txt"
-            self.create_note_file(file_path, note_file, comment)
-            self.compress_files(file_path, note_file)
-
-    def create_note_file(self, source_file, note_file, comment):
-        with open(note_file, 'w') as f:
-            f.write(comment)
-        print(f"创建备注文件 {note_file} 成功")
-
-    def compress_files(self, file_a, note_file):
-        base_name = os.path.splitext(os.path.basename(file_a))[0]
-        zip_file = f"{base_name}.zip"
-        try:
-            with zipfile.ZipFile(zip_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                zipf.write(file_a, os.path.basename(file_a))
-                zipf.write(note_file, os.path.basename(note_file))
-            print(f"压缩文件 {zip_file} 成功")
-            os.remove(file_a)  # 删除原始文件
-            os.remove(note_file)  # 删除备注文件
-            print(f"文件 {file_a} 和备注文件 {note_file} 已删除")
-        except Exception as e:
-            print(f"压缩失败: {e}")
-            messagebox.showerror("错误", f"压缩失败: {e}")
-
-
-def main():
-    app = DragDropWindow()
-    os.chdir(app.cwd)  # 确保所有文件操作在此目录下进行
-    app.mainloop()
+            messagebox.showerror("错误", "文件或文件夹不存在！")
 
 
 if __name__ == "__main__":
-    main()
+    app = DragDropWindow()
+    app.mainloop()
